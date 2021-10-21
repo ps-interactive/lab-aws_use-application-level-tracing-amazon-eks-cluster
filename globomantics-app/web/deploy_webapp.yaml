@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: globomantics-webapp
+spec:
+  selector:
+    app: globomantics-webapp
+  ports:
+    - protocol: "TCP"
+      port: 8080
+      targetPort: 8080
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: globomantics-webapp
+  labels:
+    name: globomantics-webapp
+spec:
+  selector:
+    matchLabels:
+      app: globomantics-webapp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: globomantics-webapp
+    spec:
+      containers:
+        - name: globomantics-webapp
+          image: <IMAGE_URI_FROM_ECR>
+          imagePullPolicy: Always
+          env:
+            - name: SERVICE_ENDPOINT
+              value: "http://<service-endpoint>"
+            - name: JAEGER_AGENT_HOST
+              value: jaeger-agent
+            - name: JAEGER_AGENT_PORT
+              value: "6831"
+          ports:
+            - containerPort: 8080

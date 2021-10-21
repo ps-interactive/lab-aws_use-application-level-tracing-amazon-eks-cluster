@@ -1,0 +1,337 @@
+# Default values for jaeger.
+# This is a YAML-formatted file.
+# Jaeger values are grouped by component. Cassandra values override subchart values
+
+provisionDataStore:
+  cassandra: true
+  elasticsearch: false
+  kafka: false
+
+# Overrides the image tag where default is the chart appVersion.
+tag: ""
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Setting up Jaeger Storage on Cassandra DB.
+
+storage:
+  # allowed values (cassandra, elasticsearch)
+  type: cassandra
+  cassandra:
+    host: cassandra
+    port: 9042
+    tls:
+      enabled: false
+      secretName: cassandra-tls-secret
+    user: user
+    usePassword: true
+    password: password
+    keyspace: jaeger_v1_test
+    ## Use existing secret (ignores previous password)
+    # existingSecret:
+    ## Cassandra related env vars to be configured on the concerned components
+    extraEnv: []
+    cmdlineParams:
+      {}
+      # cassandra.servers: cassandra
+      # cassandra.port: 9042
+      # cassandra.keyspace: jaeger_v1_test
+      # cassandra.tls.enabled: "false"
+  elasticsearch:
+    scheme: http
+    host: elasticsearch-master
+    port: 9200
+    user: elastic
+    usePassword: true
+    password: changeme
+    # indexPrefix: test
+    ## Use existing secret (ignores previous password)
+    # existingSecret:
+    # existingSecretKey:
+    nodesWanOnly: false
+    extraEnv: []
+    cmdlineParams:
+      {}
+      # es.server-urls: http://elasticsearch-master:9200
+      # es.username: elastic
+      # es.index-prefix: test
+  kafka:
+    brokers:
+      - kafka:9092
+    topic: jaeger_v1_test
+    authentication: none
+    extraEnv: []
+
+# Begin: Override values on the Cassandra subchart to customize for Jaeger
+cassandra:
+  persistence:
+    # To enable persistence, please see the documentation for the Cassandra chart
+    enabled: false
+  config:
+    cluster_name: jaeger
+    seed_size: 1
+    dc_name: dc1
+    rack_name: rack1
+    endpoint_snitch: GossipingPropertyFileSnitch
+# End: Override values on the Cassandra subchart to customize for Jaeger
+
+# Begin: Override values on the Kafka subchart to customize for Jaeger
+kafka:
+  replicaCount: 1
+  autoCreateTopicsEnable: true
+  zookeeper:
+    replicaCount: 1
+    serviceAccount:
+      create: true
+
+schema:
+  annotations: {}
+  image: jaegertracing/jaeger-cassandra-schema
+  imagePullSecrets: []
+  pullPolicy: IfNotPresent
+  resources:
+    {}
+    # limits:
+    #   cpu: 500m
+    #   memory: 512Mi
+    # requests:
+    #   cpu: 256m
+    #   memory: 128Mi
+  serviceAccount:
+    create: true
+    # Explicitly mounts the API credentials for the Service Account
+    automountServiceAccountToken: true
+    name:
+  podAnnotations: {}
+  podLabels: {}
+  securityContext: {}
+  podSecurityContext: {}
+  ## Deadline for cassandra schema creation job
+  activeDeadlineSeconds: 300
+  extraEnv:
+    []
+    # - name: MODE
+    #   value: prod
+    # - name: TRACE_TTL
+    #   value: "172800"
+    # - name: DEPENDENCIES_TTL
+    #   value: "0"
+
+# For configurable values of the elasticsearch if provisioned, please see:
+# https://github.com/elastic/helm-charts/tree/master/elasticsearch#configuration
+elasticsearch: {}
+
+ingester:
+  enabled: false
+  podSecurityContext: {}
+  securityContext: {}
+  annotations: {}
+  image: jaegertracing/jaeger-ingester
+  imagePullSecrets: []
+  pullPolicy: IfNotPresent
+  dnsPolicy: ClusterFirst
+  cmdlineParams: {}
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    # targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: 80
+  service:
+    annotations: {}
+    # List of IP ranges that are allowed to access the load balancer (if supported)
+    loadBalancerSourceRanges: []
+    type: ClusterIP
+  resources: {}
+  serviceAccount:
+    create: true
+    # Explicitly mounts the API credentials for the Service Account
+    automountServiceAccountToken: false
+    name:
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  ## Additional pod labels
+  ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+  podLabels: {}
+  extraSecretMounts: []
+  extraConfigmapMounts: []
+
+  serviceMonitor:
+    enabled: false
+    additionalLabels: {}
+
+# Setting up Jaeger Agent
+agent:
+  podSecurityContext: {}
+  securityContext: {}
+  enabled: true
+  annotations: {}
+  image: jaegertracing/jaeger-agent
+  # tag: 1.22
+  imagePullSecrets: []
+  pullPolicy: IfNotPresent
+  cmdlineParams: {}
+  extraEnv: []
+  daemonset:
+    useHostPort: false
+    updateStrategy: {}
+  service:
+    annotations: {}
+    # List of IP ranges that are allowed to access the load balancer (if supported)
+    loadBalancerSourceRanges: []
+    type: ClusterIP
+    # zipkinThriftPort :accept zipkin.thrift over compact thrift protocol
+    zipkinThriftPort: 5775
+    # compactPort: accept jaeger.thrift over compact thrift protocol
+    compactPort: 6831
+    # binaryPort: accept jaeger.thrift over binary thrift protocol
+    binaryPort: 6832
+    # samplingPort: (HTTP) serve configs, sampling strategies
+    samplingPort: 5778
+  resources: {}
+  serviceAccount:
+    create: true
+    # Explicitly mounts the API credentials for the Service Account
+    automountServiceAccountToken: false
+    name:
+    annotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  ## Additional pod labels
+  ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+  podLabels: {}
+  extraSecretMounts: []
+  extraConfigmapMounts: []
+  useHostNetwork: false
+  dnsPolicy: ClusterFirst
+  priorityClassName: ""
+  initContainers: []
+
+  serviceMonitor:
+    enabled: false
+    additionalLabels: {}
+
+# Setting up Jaeger Collector. The Jaeger Agent will push the trace to collector
+collector:
+  podSecurityContext: {}
+  securityContext: {}
+  enabled: true
+  annotations: {}
+  image: jaegertracing/jaeger-collector
+  # tag: 1.22
+  imagePullSecrets: []
+  pullPolicy: IfNotPresent
+  dnsPolicy: ClusterFirst
+  cmdlineParams: {}
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    # targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: 80
+  service:
+    annotations: {}
+    # List of IP ranges that are allowed to access the load balancer (if supported)
+    loadBalancerSourceRanges: []
+    type: ClusterIP
+    grpc:
+      port: 14250
+      # nodePort: 14250
+    # httpPort: can accept spans directly from clients in jaeger.thrift format
+    http:
+      port: 14268
+      # nodePort: 14268
+    # can accept Zipkin spans in JSON or Thrift
+    zipkin:
+      {}
+      # port: 9411
+      # nodePort:
+  ingress:
+    enabled: false
+    annotations: {}
+  resources: {}
+  serviceAccount:
+    create: true
+    # Explicitly mounts the API credentials for the Service Account
+    automountServiceAccountToken: false
+    name:
+    annotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  ## Additional pod labels
+  ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+  podLabels: {}
+  extraSecretMounts: []
+  extraConfigmapMounts: []
+  priorityClassName: ""
+  serviceMonitor:
+    enabled: false
+    additionalLabels: {}
+
+# Setting up Jaeger Query. The Jaeger UI to access the trace.
+query:
+  enabled: true
+  oAuthSidecar:
+    enabled: false
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.1.0
+    pullPolicy: IfNotPresent
+    containerPort: 4180
+    args: []
+    extraEnv: []
+    extraConfigmapMounts: []
+    extraSecretMounts: []
+  podSecurityContext: {}
+  securityContext: {}
+  agentSidecar:
+    enabled: true
+  annotations: {}
+  image: jaegertracing/jaeger-query
+  # tag: 1.22
+  imagePullSecrets: []
+  pullPolicy: IfNotPresent
+  dnsPolicy: ClusterFirst
+  cmdlineParams: {}
+  extraEnv: []
+  replicaCount: 1
+  service:
+    annotations: {}
+    type: ClusterIP
+    # List of IP ranges that are allowed to access the load balancer (if supported)
+    loadBalancerSourceRanges: []
+    port: 80
+  ingress:
+    enabled: false
+    annotations: {}
+    health:
+      exposed: true
+  resources: {}
+  serviceAccount:
+    create: true
+    # Explicitly mounts the API credentials for the Service Account
+    automountServiceAccountToken: false
+    name:
+    annotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  podLabels: {}
+  extraConfigmapMounts: []
+  extraVolumes: []
+  sidecars: []
+  priorityClassName: ""
+  serviceMonitor:
+    enabled: false
+    additionalLabels: {}
+
+# Array with extra yaml objects to install alongside the chart. Values are evaluated as a template.
+extraObjects: []
