@@ -39,4 +39,4 @@ spec:
             - name: JAEGER_AGENT_PORT
               value: "6831"
           ports:
-            - containerPort: 8080
+            - containerPort: 8000
