@@ -33,7 +33,7 @@ spec:
           imagePullPolicy: Always
           env:
             - name: SERVICE_ENDPOINT
-              value: "http://<service-endpoint>:5000"
+              value: "http://<service-endpoint>:6000"
             - name: JAEGER_AGENT_HOST
               value: jaeger-agent
             - name: JAEGER_AGENT_PORT
